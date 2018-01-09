@@ -1,0 +1,21 @@
+{
+  "name": "HTLC",
+  "version": "1.0.0",
+  "description": "HTLC Smart Contract BarterDex",
+  "main": "index.js",
+  "scripts": {
+    "rpc": "node startRPC.js",
+    "test": "truffle test",
+    "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
+  },
+  "author": "ortgma@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
+    "ganache-cli": "^6.0.3",
+    "sol-merger": "^0.1.0",
+    "web3": "^1.0.0-beta.27",
+    "zeppelin-solidity": "^1.2.0"
+  }
+}
