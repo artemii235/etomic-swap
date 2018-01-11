@@ -30,7 +30,7 @@ Please note that this project is not production ready yet!
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
-1. To run helper scripts set `ETOMIC_RELAY_PK`, `INITIATOR_PK`, `RECEIVER_PK` in .env files. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
+1. To run helper scripts set `ETOMIC_RELAY_PK`, `INITIATOR_PK`, `RECEIVER_PK` in .env file. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
 
 ## Related links
 
