@@ -17,7 +17,9 @@ const config = {
   // same as initiator for testing purpose
   etomicRelay: {
     address: '0x485d2cc2d13a9e12E4b53D606DB1c8adc884fB8a'
-  }
+  },
+  // request events from Ethereum blockchain starting from specific block number
+  initialBlock: 2437028
 };
 
 module.exports = config;

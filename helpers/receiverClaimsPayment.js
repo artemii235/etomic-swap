@@ -1,5 +1,5 @@
 const Web3 = require('web3');
-const web3 = new Web3('wss://ropsten.infura.io/ws');
+const web3 = new Web3(process.env.ETH_RPC_URL);
 const config = require('./config');
 
 async function claimPayment() {

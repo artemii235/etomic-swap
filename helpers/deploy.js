@@ -1,6 +1,6 @@
 const config = require('./config');
 const Web3 = require('web3');
-const web3 = new Web3('wss://ropsten.infura.io/ws');
+const web3 = new Web3(process.env.ETH_RPC_URL);
 
 async function deploy() {
   const contract = new web3.eth.Contract(config.swapContract.abi);
