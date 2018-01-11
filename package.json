@@ -1,7 +1,7 @@
 {
-  "name": "HTLC",
+  "name": "ETOMIC_SWAP",
   "version": "1.0.0",
-  "description": "HTLC Smart Contract BarterDex",
+  "description": "Etomic swap smart contract and helpers",
   "main": "index.js",
   "scripts": {
     "rpc": "node startRPC.js",

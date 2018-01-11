@@ -1,8 +1,6 @@
 version: '2'
 services:
-
   rpc:
-    image: jincort/blockchain-ethereum-testrpc:latest
     build:
       context: ./
       dockerfile: rpc.Dockerfile
@@ -10,10 +8,21 @@ services:
       - 8545
 
   workspace:
-    image: jincort/blockchain-sc-workspace:latest
     build:
       context: ./
       dockerfile: workspace.Dockerfile
     tty: true
+    env_file:
+        - .env
     volumes:
       - ./:/usr/src/workspace
+    links:
+      - komodod-etomic
+
+  komodod-etomic:
+    image: artempikulin/komodod-etomic
+    ports:
+      - 10271
+    volumes:
+      - ~/.zcash-params:/root/.zcash-params
+      - ~/.komodo:/root/.komodo
