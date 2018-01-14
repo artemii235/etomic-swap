@@ -18,26 +18,16 @@ contract EtomicSwap {
     DealState state;
   }
 
-  mapping (uint => Deal) public deals;
-
-  address public etomicRelay;
+  mapping (bytes20 => Deal) public deals;
 
   uint public blocksPerDeal;
 
-  event NeedDealApprove(uint indexed dealId, bytes32 indexed etomicTxId);
-
-  modifier OnlyEtomicRelay() {
-    require(msg.sender == etomicRelay);
-    _;
-  }
-
-  function EtomicSwap(address _etomicRelay, uint _blocksPerDeal) public {
-    etomicRelay = _etomicRelay;
+  function EtomicSwap(uint _blocksPerDeal) public {
     blocksPerDeal = _blocksPerDeal;
   }
 
   function initEthDeal(
-    uint _dealId,
+    bytes20 _dealId,
     address _receiver
   ) external payable {
     require(_receiver != 0x0 && msg.value > 0 && deals[_dealId].state == DealState.Uninitialized);
@@ -50,7 +40,7 @@ contract EtomicSwap {
   }
 
   function initErc20Deal(
-    uint _dealId,
+    bytes20 _dealId,
     address _receiver,
     address _tokenAddress,
     uint _amount
@@ -70,22 +60,7 @@ contract EtomicSwap {
     require(token.transferFrom(msg.sender, address(this), _amount));
   }
 
-  function confirmDeal(uint _dealId) external {
-    require(
-      deals[_dealId].state == DealState.Initialized &&
-      msg.sender == deals[_dealId].initiator &&
-      block.number < deals[_dealId].claimUntilBlock
-    );
-    deals[_dealId].state = DealState.PaymentSentToReceiver;
-    if (deals[_dealId].tokenAddress == 0x0) {
-      deals[_dealId].receiver.transfer(deals[_dealId].amount);
-    } else {
-      ERC20 token = ERC20(deals[_dealId].tokenAddress);
-      require(token.transfer(deals[_dealId].receiver, deals[_dealId].amount));
-    }
-  }
-
-  function initiatorClaimsPayment(uint _dealId) external {
+  function initiatorClaimsPayment(bytes20 _dealId) external {
     require(
       deals[_dealId].state == DealState.Initialized &&
       block.number >= deals[_dealId].claimUntilBlock &&
@@ -100,19 +75,12 @@ contract EtomicSwap {
     }
   }
 
-  function receiverClaimsPayment(uint _dealId, bytes32 _etomicTxId) external {
+  function receiverClaimsPayment(bytes20 _dealId, bytes secret) external {
     require(
       deals[_dealId].state == DealState.Initialized &&
       block.number < deals[_dealId].claimUntilBlock &&
-      msg.sender == deals[_dealId].receiver
-    );
-    NeedDealApprove(_dealId, _etomicTxId);
-  }
-
-  function approveDeal(uint _dealId) external OnlyEtomicRelay {
-    require(
-      deals[_dealId].state == DealState.Initialized &&
-      block.number < deals[_dealId].claimUntilBlock
+      msg.sender == deals[_dealId].receiver &&
+      ripemd160(sha256(secret)) == _dealId
     );
     deals[_dealId].state = DealState.PaymentSentToReceiver;
     if (deals[_dealId].tokenAddress == 0x0) {

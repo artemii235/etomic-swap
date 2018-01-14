@@ -7,11 +7,12 @@ Please note that this project is not production ready yet!
 1. Definition: ESSC - Etomic Swap Smart Contract 
 1. Let's expect that 1 ETH = 1 ETOMIC = 1 KMD.
 1. Alice has 1 ETOMIC and 1 ETH/ERC20 token. Bob has 1 KMD.
+1. Alice and Bob generate temporary Private/Public key pairs required to execute BarterDex Atomic swap of ETOMIC/KMD: https://github.com/SuperNETorg/komodo/wiki/barterDEX-Whitepaper-v2#atomic-swaps.
 1. If ERC20 swap is going to be performed Alice must allow ESSC to `transferFrom` her 1 ERC20 token executing `approve` ERC20 method. 
-1. Alice and Bob initiate swap according to BarterDex Atomic Swap protocol: https://github.com/SuperNETorg/komodo/wiki/barterDEX-Whitepaper-v2#atomic-swaps. Alice also executes `initDeal` ESSC method making ETH/ERC20 payment which is locked by ESSC.
-1. Once BarterDex Swap protocol completes Alice executes `confirmDeal` ESSC method and her deposit is being transferred to Bob.
-1. If Alice is not nice and not confirming the deal - Bob can request manual approval from Etomic relay - relay will check that provided txid exists and spent to right address and approve payment to Bob.
-1. If Alice is not confirming the payment and Bob is not getting approved during timelock period - Alice can take her payment back.
+1. Alice executes `initDeal` ESSC method making ETH/ERC20 payment and submitting hash of 1 of her private keys as `dealId`.
+1. Payment is locked by Smart Contract.
+1. Once BarterDex Swap protocol completes Alice reveals her private key and Bob can claim her Etomic and ETH/ERC20 using it.
+1. If Bob does not claim payment during timelock period - Alice can take her payment back.
 
 ## Project structure
 
@@ -23,14 +24,11 @@ Please note that this project is not production ready yet!
 
 1. Install docker.
 1. Run `docker-compose build`.
-1. Create `komodo.conf`: https://github.com/jl777/komodo#git-pullzcutilfetch-paramsshzcutilbuildsh--j8to-reset-the-blockchain-from-komodo-rm--rf-blocks-chainstate-debuglog-komodostate-dblogcreate-komodoconf.
-1. Create `ETOMIC.conf` at `~/.komodo/ETOMIC`. Example can be found in this repository.
-1. Run `docker-compose run --rm komodod-etomic ./fetch-params.sh`.
-1. `cp .env.empty .env` - fill your .env file according to `ETOMIC.conf`.
+1. `cp .env.empty .env`.
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
-1. To run helper scripts set `ETOMIC_RELAY_PK`, `INITIATOR_PK`, `RECEIVER_PK` in .env file. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
+1. To run helper scripts set `INITIATOR_PK`, `RECEIVER_PK` in .env file. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
 
 ## Related links
 

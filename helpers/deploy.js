@@ -8,7 +8,6 @@ async function deploy() {
   const deploy = contract.deploy({
     data: config.swapContract.byteCode,
     arguments: [
-      config.etomicRelay.address,
       config.swapContract.blocksPerDeal,
     ]
   });

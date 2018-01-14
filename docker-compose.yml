@@ -16,13 +16,3 @@ services:
         - .env
     volumes:
       - ./:/usr/src/workspace
-    links:
-      - komodod-etomic
-
-  komodod-etomic:
-    image: artempikulin/komodod-etomic
-    ports:
-      - 10271
-    volumes:
-      - ~/.zcash-params:/root/.zcash-params
-      - ~/.komodo:/root/.komodo

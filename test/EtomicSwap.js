@@ -1,6 +1,7 @@
 const EtomicSwap = artifacts.require('EtomicSwap');
 const Token = artifacts.require('Token');
 const crypto = require('crypto');
+const RIPEMD160 = require('ripemd160');
 
 const EVMThrow = 'VM Exception while processing transaction';
 
@@ -37,29 +38,31 @@ const DEAL_PAYMENT_SENT_TO_RECEIVER = 2;
 const DEAL_PAYMENT_SENT_TO_INITIATOR = 3;
 
 const blocksPerDeal = 10;
+const validSecret = crypto.randomBytes(32).toString('hex');
+const invalidSecret = crypto.randomBytes(32).toString('hex');
+const dealId = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(validSecret).digest()).digest('hex');
 
 contract('EtomicSwap', function(accounts) {
 
   beforeEach(async function () {
-    this.etomicRelay = accounts[9];
-    this.etomicSwap = await EtomicSwap.new(this.etomicRelay, blocksPerDeal);
+    this.etomicSwap = await EtomicSwap.new(blocksPerDeal);
     this.token = await Token.new();
     await this.token.transfer(accounts[1], web3.toWei('100'));
   });
 
   it('Should create contract with not initialized deals', async function () {
-    const deal = await this.etomicSwap.deals(0);
+    const deal = await this.etomicSwap.deals(dealId);
     assert.equal(deal[5].valueOf(), DEAL_UNINITIALIZED);
   });
 
   it('Should allow to init ETH deal', async function () {
     const initParams = [
-      0,
+      dealId,
       accounts[1]
     ];
     await this.etomicSwap.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
 
-    const deal = await this.etomicSwap.deals(0);
+    const deal = await this.etomicSwap.deals(dealId);
     // initiator
     assert.equal(deal[0], accounts[0]);
     // receiver
@@ -79,7 +82,7 @@ contract('EtomicSwap', function(accounts) {
 
   it('Should allow to init using ERC20 token', async function () {
     const initParams = [
-      0,
+      dealId,
       accounts[1],
       this.token.address,
       web3.toWei('1')
@@ -88,7 +91,7 @@ contract('EtomicSwap', function(accounts) {
     await this.token.approve(this.etomicSwap.address, web3.toWei('1'), { from: accounts[0] });
     await this.etomicSwap.initErc20Deal(...initParams).should.be.fulfilled;
 
-    const deal = await this.etomicSwap.deals(0);
+    const deal = await this.etomicSwap.deals(dealId);
     // initiator
     assert.equal(deal[0], accounts[0]);
     // receiver
@@ -110,168 +113,109 @@ contract('EtomicSwap', function(accounts) {
     await this.etomicSwap.initErc20Deal(...initParams).should.be.rejectedWith(EVMThrow);
   });
 
-  it('Should allow initiator to confirm ETH deal', async function () {
+  it('Should allow receiver to claim and receive ETH payment', async function () {
     const initParams = [
-      0,
-      accounts[1],
-    ];
-
-    // should not allow to confirm uninitialized deal
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-
-    // init and confirm should work
-    await this.etomicSwap.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
-
-    const balanceBefore = web3.eth.getBalance(accounts[1]);
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.fulfilled;
-    const balanceAfter = web3.eth.getBalance(accounts[1]);
-
-    const deal = await this.etomicSwap.deals(0);
-    // check confirmed status
-    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_RECEIVER);
-
-    // check receiver balance
-    assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.toWei('1'));
-
-    // should not allow to confirm again
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-  });
-
-  it('Should allow initiator to confirm ERC20 deal', async function () {
-    const initParams = [
-      0,
-      accounts[1],
-      this.token.address,
-      web3.toWei('1')
-    ];
-
-    // should not allow to confirm uninitialized deal
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-
-    // init
-    await this.token.approve(this.etomicSwap.address, web3.toWei('1'), { from: accounts[0] });
-    await this.etomicSwap.initErc20Deal(...initParams).should.be.fulfilled;
-
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.fulfilled;
-    const balanceAfter = await this.token.balanceOf(accounts[1]);
-
-    const deal = await this.etomicSwap.deals(0);
-    // check confirmed status
-    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_RECEIVER);
-
-    // check receiver balance
-    assert.equal(balanceAfter.toString(), web3.toWei('101'));
-
-    // should not allow to confirm again
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-  });
-
-  it('Should allow receiver to claim payment', async function () {
-    const randomTxId = crypto.randomBytes(32).toString('binary');
-
-    const initParams = [
-      0,
+      dealId,
       accounts[1]
     ];
 
     // should not allow to claim payment from uninitialized deal
-    await this.etomicSwap.receiverClaimsPayment(0, randomTxId, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.etomicSwap.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
 
-    await this.etomicSwap.receiverClaimsPayment(0, randomTxId, { from: accounts[1] }).should.be.fulfilled;
-  });
+    // should not allow to claim with invalid secret
+    await this.etomicSwap.receiverClaimsPayment(dealId, invalidSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
-  it('Should allow Etomic relay address to approve deal - ETH', async function () {
-    const initParams = [
-      0,
-      accounts[1]
-    ];
-
-    // should not allow to approve uninitialized deal
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.rejectedWith(EVMThrow);
-
-    // init
-    await this.etomicSwap.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
-
-    // should not allow to approve from address different from etomicRelay
-    await this.etomicSwap.approveDeal(0, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    // should not allow to claim from address not equal to receiver
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     const balanceBefore = web3.eth.getBalance(accounts[1]);
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.fulfilled;
+
+    // default ganache-cli gas price
+    const gasPrice = web3.toWei('100', 'gwei');
+    const tx = await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[1]);
 
-    const deal = await this.etomicSwap.deals(0);
-    // check confirmed status
+    const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
+    // check receiver balance - correct amount should be sent
+    assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.toWei('1'));
+
+    const deal = await this.etomicSwap.deals(dealId);
+    // check payment sent status
     assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_RECEIVER);
 
-    // check receiver balance
-    assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.toWei('1'));
-
-    // should not allow to approve again
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.rejectedWith(EVMThrow);
+    // should not allow to claim again
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
   });
 
-  it('Should allow Etomic relay address to approve deal - ERC20', async function () {
+  it('Should allow receiver to claim and receive ERC20 payment', async function () {
     const initParams = [
-      0,
+      dealId,
       accounts[1],
       this.token.address,
       web3.toWei('1')
     ];
 
-    // should not allow to approve uninitialized deal
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.rejectedWith(EVMThrow);
+    // should not allow to claim payment from uninitialized deal
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.token.approve(this.etomicSwap.address, web3.toWei('1'), { from: accounts[0] });
     await this.etomicSwap.initErc20Deal(...initParams).should.be.fulfilled;
 
-    // should not allow to approve from address different from etomicRelay
-    await this.etomicSwap.approveDeal(0, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    // should not allow to claim with invalid secret
+    await this.etomicSwap.receiverClaimsPayment(dealId, invalidSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.fulfilled;
+    // should not allow to claim from address not equal to receiver
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[1]);
 
-    const deal = await this.etomicSwap.deals(0);
-    // check confirmed status
-    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_RECEIVER);
-
-    // check receiver balance
+    // check receiver balance - correct amount should be sent
     assert.equal(balanceAfter.toString(), web3.toWei('101'));
 
-    // should not allow to approve again
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.rejectedWith(EVMThrow);
+    const deal = await this.etomicSwap.deals(dealId);
+    // check payment sent status
+    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_RECEIVER);
+
+    // should not allow to claim again
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
   });
 
   it('Should allow initiator to claim payment ETH back when deal is expired', async function () {
     const initParams = [
-      0,
+      dealId,
       accounts[1],
     ];
 
     // should not allow to claim from uninitialized deal
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.etomicSwap.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
 
     // should not allow to claim if deal is not expired
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     await advanceToBlock(web3.eth.blockNumber + blocksPerDeal);
 
     const balanceBefore = web3.eth.getBalance(accounts[0]);
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.fulfilled;
+
+    // default ganache-cli gas price
+    const gasPrice = web3.toWei('100', 'gwei');
+    const tx = await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[0]);
 
-    const deal = await this.etomicSwap.deals(0);
-    // check confirmed status
-    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_INITIATOR);
-
+    const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
     // check initiator balance
-    assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.toWei('0.9963703'));
+    assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.toWei('1'));
+
+    const deal = await this.etomicSwap.deals(dealId);
+    // check payment sent status
+    assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_INITIATOR);
 
     // should not allow to claim again
     await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
@@ -279,34 +223,31 @@ contract('EtomicSwap', function(accounts) {
 
   it('Should allow initiator to claim payment ERC20 back when deal is expired', async function () {
     const initParams = [
-      0,
+      dealId,
       accounts[1],
       this.token.address,
       web3.toWei('1')
     ];
 
     // should not allow to claim from uninitialized deal
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.token.approve(this.etomicSwap.address, web3.toWei('1'), { from: accounts[0] });
     await this.etomicSwap.initErc20Deal(...initParams).should.be.fulfilled;
 
     // should not allow to claim if deal is not expired
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     await advanceToBlock(web3.eth.blockNumber + blocksPerDeal);
 
-    // should not allow to confirm payment, claim by receiver, approve
-    const randomTxId = crypto.randomBytes(32).toString('binary');
-    await this.etomicSwap.approveDeal(0, { from: this.etomicRelay }).should.be.rejectedWith(EVMThrow);
-    await this.etomicSwap.receiverClaimsPayment(0, randomTxId, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-    await this.etomicSwap.confirmDeal(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    // should not allow to claim by receiver
+    await this.etomicSwap.receiverClaimsPayment(dealId, validSecret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.fulfilled;
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[0]);
 
-    const deal = await this.etomicSwap.deals(0);
+    const deal = await this.etomicSwap.deals(dealId);
     // check confirmed status
     assert.equal(deal[5].valueOf(), DEAL_PAYMENT_SENT_TO_INITIATOR);
 
@@ -314,6 +255,6 @@ contract('EtomicSwap', function(accounts) {
     assert.equal(balanceAfter.toString(), web3.toWei('900'));
 
     // should not allow to claim again
-    await this.etomicSwap.initiatorClaimsPayment(0, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.etomicSwap.initiatorClaimsPayment(dealId, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
   });
 });
