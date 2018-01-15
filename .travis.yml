@@ -1,0 +1,13 @@
+sudo: required
+
+services:
+  - docker
+
+before_install:
+  - docker-compose build
+  - docker-compose up -d
+
+script:
+  - docker-compose exec workspace yarn
+  - docker-compose exec workspace truffle test
+  - docker-compose down
