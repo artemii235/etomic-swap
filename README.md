@@ -1,5 +1,5 @@
 # Etomic Swap Smart Contract for BarterDex platform.
-[![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)
+[![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)  
 Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
 Please note that this project is not production ready yet!
 
