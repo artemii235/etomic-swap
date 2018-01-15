@@ -17,7 +17,7 @@ async function deploy() {
     data: deploy.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.INITIATOR_PK).then(transaction => {
+  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK).then(transaction => {
     web3.eth.sendSignedTransaction(transaction.rawTransaction)
       .on('transactionHash', transactionHash => {
         console.log(`txHash: ${ transactionHash }`);
