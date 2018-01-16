@@ -21,8 +21,7 @@ contract Alice {
 
   mapping (bytes32 => Deal) public deals;
 
-  function EtomicSwap() public {
-  }
+  function Alice() { }
 
   function initEthDeal(
     bytes32 _dealId,
@@ -31,13 +30,15 @@ contract Alice {
     bytes20 _bobHash
   ) external payable {
     require(_bob != 0x0 && msg.value > 0 && deals[_dealId].state == DealState.Uninitialized);
-    deals[_dealId].state = DealState.Initialized;
-    deals[_dealId].alice = msg.sender;
-    deals[_dealId].aliceHash = _aliceHash;
-    deals[_dealId].bob = _bob;
-    deals[_dealId].bobHash = _bobHash;
-    deals[_dealId].tokenAddress = 0x0;
-    deals[_dealId].amount = msg.value;
+    deals[_dealId] = Deal(
+      msg.sender,
+      _bob,
+      0x0,
+      msg.value,
+      _aliceHash,
+      _bobHash,
+      DealState.Initialized
+    );
   }
 
   function initErc20Deal(
@@ -58,8 +59,8 @@ contract Alice {
     deals[_dealId].amount = _amount;
     ERC20 token = ERC20(_tokenAddress);
     require(
-      token.allowance(msg.sender, address(this)) >= deals[_dealId].amount &&
-      token.balanceOf(msg.sender) >= deals[_dealId].amount
+      token.allowance(msg.sender, address(this)) >= _amount &&
+      token.balanceOf(msg.sender) >= _amount
     );
     require(token.transferFrom(msg.sender, address(this), _amount));
   }

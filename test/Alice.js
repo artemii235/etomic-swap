@@ -9,10 +9,7 @@ require('chai')
   .use(require('chai-as-promised'))
   .should();
 
-const DEAL_UNINITIALIZED = 0;
-const DEAL_INITIALIZED = 1;
-const DEAL_PAYMENT_SENT_TO_BOB = 2;
-const DEAL_PAYMENT_SENT_TO_ALICE = 3;
+const [ DEAL_UNINITIALIZED, DEAL_INITIALIZED, DEAL_PAYMENT_SENT_TO_BOB, DEAL_PAYMENT_SENT_TO_ALICE] = [0, 1, 2, 3];
 
 const aliceSecret = crypto.randomBytes(32);
 const aliceHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(aliceSecret).digest()).digest('hex');
@@ -43,7 +40,6 @@ contract('Alice', function(accounts) {
       bobHash
     ];
     await this.alice.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
-
     const deal = await this.alice.deals(dealId);
 
     // alice
