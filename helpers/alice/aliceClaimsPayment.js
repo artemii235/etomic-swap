@@ -1,26 +1,20 @@
-const config = require('./config');
 const Web3 = require('web3');
 const web3 = new Web3(process.env.ETH_RPC_URL);
+const config = require('../config');
 
-async function deploy() {
-  const contract = new web3.eth.Contract(config.swapContract.abi);
-
-  const deploy = contract.deploy({
-    data: config.swapContract.byteCode,
-    arguments: [
-      config.swapContract.blocksPerDeal,
-    ]
-  });
+async function method() {
+  const contract = new web3.eth.Contract(config.alice.abi, config.alice.address);
+  const method = contract.methods.aliceClaimsPayment(process.argv[2], process.argv[3]);
 
   const txInput = {
-    to: null,
-    gas: (await deploy.estimateGas()) + 300000,
+    to: config.alice.address,
+    gas: 300000,
     gasPrice: web3.utils.toWei('100', 'gwei'),
-    data: deploy.encodeABI()
+    data: method.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.INITIATOR_PK)
-    .then((transaction) => {
+  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK)
+    .then(transaction => {
       web3.eth.sendSignedTransaction(transaction.rawTransaction)
         .on('transactionHash', transactionHash => {
           console.log(`txHash: ${ transactionHash }`);
@@ -34,11 +28,11 @@ async function deploy() {
           process.exit();
         })
         .then((receipt) => {
-          console.log('swap contract deployed');
+          console.log('got receipt');
           console.log(receipt);
           process.exit();
         });
     });
 }
 
-deploy();
+method();

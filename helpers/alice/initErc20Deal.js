@@ -1,19 +1,26 @@
 const Web3 = require('web3');
 const web3 = new Web3(process.env.ETH_RPC_URL);
-const config = require('./config');
+const config = require('../config');
 
 async function initErc20Deal() {
-  const contract = new web3.eth.Contract(config.swapContract.abi, config.swapContract.address);
-  const method = contract.methods.initErc20Deal(process.argv[2], config.deal.receiver, config.tokenContract.address, web3.utils.toWei('1'));
+  const contract = new web3.eth.Contract(config.alice.abi, config.alice.address);
+  const method = contract.methods.initErc20Deal(
+    process.argv[2],
+    config.deal.bob,
+    process.argv[3],
+    process.argv[4],
+    config.tokenContract.address,
+    web3.utils.toWei('1')
+  );
 
   const txInput = {
-    to: config.swapContract.address,
+    to: config.alice.address,
     gas: 300000,
     gasPrice: web3.utils.toWei('100', 'gwei'),
     data: method.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.INITIATOR_PK).then(transaction => {
+  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK).then(transaction => {
     web3.eth.sendSignedTransaction(transaction.rawTransaction)
       .on('transactionHash', transactionHash => {
         console.log(`txHash: ${ transactionHash }`);

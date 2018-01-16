@@ -1,19 +1,21 @@
-# Etomic Swap Smart Contract for BarterDex platform.
+# Etomic Swap Smart Contracts for BarterDex platform.
 [![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)  
-Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
+Etomic swap Smart Contracts are implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
 Please note that this project is not production ready yet!
 
 ## Swap workflow
+Smart Contracts follow BarterDex Atomic swap protocol https://github.com/SuperNETorg/komodo/wiki/barterDEX-Whitepaper-v2#atomic-swaps  
+Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC20 swaps to any currency supporting HTLC and multisigs.  
 
-1. Definition: ESSC - Etomic Swap Smart Contract 
-1. Let's expect that 1 ETH = 1 ETOMIC = 1 KMD.
-1. Alice has 1 ETOMIC and 1 ETH/ERC20 token. Bob has 1 KMD.
-1. Alice and Bob generate temporary Private/Public key pairs required to execute BarterDex Atomic swap of ETOMIC/KMD: https://github.com/SuperNETorg/komodo/wiki/barterDEX-Whitepaper-v2#atomic-swaps.
-1. If ERC20 swap is going to be performed Alice must allow ESSC to `transferFrom` her 1 ERC20 token executing `approve` ERC20 method. 
-1. Alice executes `initDeal` ESSC method making ETH/ERC20 payment and submitting hash of 1 of her private keys as `dealId`.
-1. Payment is locked by Smart Contract.
-1. Once BarterDex Swap protocol completes Alice reveals her private key and Bob can claim her Etomic and ETH/ERC20 using it.
-1. If Bob does not claim payment during timelock period - Alice can take her payment back.
+1. Bob wants to change his 1 ETH to Alice 1 ERC20 token.
+1. Alice and Bob generate temporary Private/Public key pairs required to execute the swap.
+1. Alice sends dexfee (handled externally by client side)
+1. Bob sends deposit locked with his hash of BsecretN. He will need to reveal BsecretN to claim it back. Alice can claim deposit without knowing a secret after 4 hours.
+1. Alice sends payment locked with 2 hashes: AsecretM and BsecretN.
+1. Bob sends payment locked with hash of AsecretM. Bob can claim payment back after 2 hours without knowing AsecretM.
+1. Alice claims Bob payment revealing AsecretM.
+1. Bob claims Alice payment using AsecretM.
+1. Bob claims his deposit back.
 
 ## Project structure
 

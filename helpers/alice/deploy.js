@@ -1,25 +1,26 @@
+const config = require('../config');
 const Web3 = require('web3');
-const config = require('./config');
-
 const web3 = new Web3(process.env.ETH_RPC_URL);
 
-function initEthDeal() {
-  const contract = new web3.eth.Contract(config.swapContract.abi, config.swapContract.address);
-  // get deal id from command line
-  const method = contract.methods.initEthDeal(process.argv[2], config.deal.receiver);
+async function deploy() {
+  const contract = new web3.eth.Contract(config.alice.abi);
+
+  const deploy = contract.deploy({
+    data: config.alice.byteCode,
+    arguments: []
+  });
 
   const txInput = {
-    to: config.swapContract.address,
-    value: web3.utils.toWei('1'),
-    gas: 300000,
+    to: null,
+    gas: (await deploy.estimateGas()) + 300000,
     gasPrice: web3.utils.toWei('100', 'gwei'),
-    data: method.encodeABI()
+    data: deploy.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.INITIATOR_PK)
+  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK)
     .then((transaction) => {
       web3.eth.sendSignedTransaction(transaction.rawTransaction)
-        .on('transactionHash', (transactionHash) => {
+        .on('transactionHash', transactionHash => {
           console.log(`txHash: ${ transactionHash }`);
         })
         .on('error', (error) => {
@@ -31,11 +32,11 @@ function initEthDeal() {
           process.exit();
         })
         .then((receipt) => {
-          console.log('deal initialized');
+          console.log('swap contract deployed');
           console.log(receipt);
           process.exit();
         });
     });
 }
 
-initEthDeal();
+deploy();
