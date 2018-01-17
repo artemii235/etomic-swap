@@ -90,10 +90,6 @@ contract Bob {
       DepositState.BobMadeDeposit
     );
     ERC20 token = ERC20(_tokenAddress);
-    require(
-      token.allowance(msg.sender, address(this)) >= _amount &&
-      token.balanceOf(msg.sender) >= _amount
-    );
     require(token.transferFrom(msg.sender, address(this), _amount));
   }
 
