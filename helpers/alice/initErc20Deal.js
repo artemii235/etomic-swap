@@ -6,11 +6,11 @@ async function initErc20Deal() {
   const contract = new web3.eth.Contract(config.alice.abi, config.alice.address);
   const method = contract.methods.initErc20Deal(
     process.argv[2],
+    web3.utils.toWei('1'),
     config.deal.bob,
     process.argv[3],
     process.argv[4],
-    config.tokenContract.address,
-    web3.utils.toWei('1')
+    config.tokenContract.address
   );
 
   const txInput = {

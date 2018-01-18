@@ -20,22 +20,12 @@ contract Bob {
   }
 
   struct BobDeposit {
-    address alice;
-    address bob;
-    uint aliceCanClaimAfter;
-    bytes20 secretHash;
-    address tokenAddress;
-    uint amount;
+    bytes20 depositHash;
     DepositState state;
   }
 
   struct BobPayment {
-    address alice;
-    address bob;
-    uint bobCanClaimAfter;
-    bytes20 secretHash;
-    address tokenAddress;
-    uint amount;
+    bytes20 paymentHash;
     PaymentState state;
   }
 
@@ -56,75 +46,94 @@ contract Bob {
     bytes20 _secretHash
   ) external payable {
     require(_alice != 0x0 && msg.value > 0 && deposits[_txId].state == DepositState.Uninitialized);
-    deposits[_txId] = BobDeposit(
+    bytes20 depositHash = ripemd160(
       _alice,
       msg.sender,
-      block.number.add(blocksPerDeal.mul(2)),
       _secretHash,
-      0x0,
+      address(0),
       msg.value,
+      block.number.add(blocksPerDeal.mul(2))
+    );
+    deposits[_txId] = BobDeposit(
+      depositHash,
       DepositState.BobMadeDeposit
     );
   }
 
   function bobMakesErc20Deposit(
     bytes32 _txId,
+    uint _amount,
     address _alice,
     bytes20 _secretHash,
-    address _tokenAddress,
-    uint _amount
+    address _tokenAddress
   ) external {
-    require(
-      _alice != 0x0 &&
-      _amount > 0 &&
-      deposits[_txId].state == DepositState.Uninitialized &&
-      _tokenAddress != 0x0
-    );
-    deposits[_txId] = BobDeposit(
+    bytes20 depositHash = ripemd160(
       _alice,
       msg.sender,
-      block.number.add(blocksPerDeal.mul(2)),
       _secretHash,
       _tokenAddress,
       _amount,
+      block.number.add(blocksPerDeal.mul(2))
+    );
+    deposits[_txId] = BobDeposit(
+      depositHash,
       DepositState.BobMadeDeposit
     );
     ERC20 token = ERC20(_tokenAddress);
-    require(
-      token.allowance(msg.sender, address(this)) >= _amount &&
-      token.balanceOf(msg.sender) >= _amount
-    );
-    require(token.transferFrom(msg.sender, address(this), _amount));
+    assert(token.transferFrom(msg.sender, address(this), _amount));
   }
 
-  function bobClaimsDeposit(bytes32 _txId, bytes _secret) external {
-    require(
-      deposits[_txId].state == DepositState.BobMadeDeposit &&
-      msg.sender == deposits[_txId].bob &&
-      block.number < deposits[_txId].aliceCanClaimAfter &&
-      ripemd160(sha256(_secret)) == deposits[_txId].secretHash
+  function bobClaimsDeposit(
+    bytes32 _txId,
+    uint _amount,
+    uint _aliceCanClaimAfter,
+    address _alice,
+    address _tokenAddress,
+    bytes _secret
+  ) external {
+    require(deposits[_txId].state == DepositState.BobMadeDeposit);
+    bytes20 depositHash = ripemd160(
+      _alice,
+      msg.sender,
+      ripemd160(sha256(_secret)),
+      _tokenAddress,
+      _amount,
+      _aliceCanClaimAfter
     );
+    require(depositHash == deposits[_txId].depositHash && block.number < _aliceCanClaimAfter);
     deposits[_txId].state = DepositState.BobClaimedDeposit;
-    if (deposits[_txId].tokenAddress == 0x0) {
-      msg.sender.transfer(deposits[_txId].amount);
+    if (_tokenAddress == 0x0) {
+      msg.sender.transfer(_amount);
     } else {
-      ERC20 token = ERC20(deposits[_txId].tokenAddress);
-      require(token.transfer(msg.sender, deposits[_txId].amount));
+      ERC20 token = ERC20(_tokenAddress);
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 
-  function aliceClaimsDeposit(bytes32 _txId) external {
-    require(
-      deposits[_txId].state == DepositState.BobMadeDeposit &&
-      msg.sender == deposits[_txId].alice &&
-      block.number >= deposits[_txId].aliceCanClaimAfter
+  function aliceClaimsDeposit(
+    bytes32 _txId,
+    uint _amount,
+    uint _aliceCanClaimAfter,
+    address _bob,
+    address _tokenAddress,
+    bytes20 _secretHash
+  ) external {
+    require(deposits[_txId].state == DepositState.BobMadeDeposit);
+    bytes20 depositHash = ripemd160(
+      msg.sender,
+      _bob,
+      _secretHash,
+      _tokenAddress,
+      _amount,
+      _aliceCanClaimAfter
     );
+    require(depositHash == deposits[_txId].depositHash && block.number >= _aliceCanClaimAfter);
     deposits[_txId].state = DepositState.AliceClaimedDeposit;
-    if (deposits[_txId].tokenAddress == 0x0) {
-      msg.sender.transfer(deposits[_txId].amount);
+    if (_tokenAddress == 0x0) {
+      msg.sender.transfer(_amount);
     } else {
-      ERC20 token = ERC20(deposits[_txId].tokenAddress);
-      require(token.transfer(msg.sender, deposits[_txId].amount));
+      ERC20 token = ERC20(_tokenAddress);
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 
@@ -134,23 +143,26 @@ contract Bob {
     bytes20 _secretHash
   ) external payable {
     require(_alice != 0x0 && msg.value > 0 && payments[_txId].state == PaymentState.Uninitialized);
-    payments[_txId] = BobPayment(
+    bytes20 paymentHash = ripemd160(
       _alice,
       msg.sender,
-      block.number.add(blocksPerDeal),
       _secretHash,
-      0x0,
+      address(0),
       msg.value,
+      block.number.add(blocksPerDeal)
+    );
+    payments[_txId] = BobPayment(
+      paymentHash,
       PaymentState.BobMadePayment
     );
   }
 
   function bobMakesErc20Payment(
     bytes32 _txId,
+    uint _amount,
     address _alice,
     bytes20 _secretHash,
-    address _tokenAddress,
-    uint _amount
+    address _tokenAddress
   ) external {
     require(
       _alice != 0x0 &&
@@ -158,51 +170,73 @@ contract Bob {
       payments[_txId].state == PaymentState.Uninitialized &&
       _tokenAddress != 0x0
     );
-    payments[_txId] = BobPayment(
+    bytes20 paymentHash = ripemd160(
       _alice,
       msg.sender,
-      block.number.add(blocksPerDeal),
       _secretHash,
       _tokenAddress,
       _amount,
+      block.number.add(blocksPerDeal)
+    );
+    payments[_txId] = BobPayment(
+      paymentHash,
       PaymentState.BobMadePayment
     );
     ERC20 token = ERC20(_tokenAddress);
-    require(
-      token.allowance(msg.sender, address(this)) >= _amount &&
-      token.balanceOf(msg.sender) >= _amount
-    );
-    require(token.transferFrom(msg.sender, address(this), _amount));
+    assert(token.transferFrom(msg.sender, address(this), _amount));
   }
 
-  function bobClaimsPayment(bytes32 _txId) external {
-    require(
-      payments[_txId].state == PaymentState.BobMadePayment &&
-      msg.sender == payments[_txId].bob &&
-      block.number >= payments[_txId].bobCanClaimAfter
+  function bobClaimsPayment(
+    bytes32 _txId,
+    uint _amount,
+    uint _bobCanClaimAfter,
+    address _alice,
+    address _tokenAddress,
+    bytes20 _secretHash
+  ) external {
+    require(payments[_txId].state == PaymentState.BobMadePayment);
+    bytes20 paymentHash = ripemd160(
+      _alice,
+      msg.sender,
+      _secretHash,
+      _tokenAddress,
+      _amount,
+      _bobCanClaimAfter
     );
+    require(block.number >= _bobCanClaimAfter && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.BobClaimedPayment;
-    if (payments[_txId].tokenAddress == 0x0) {
-      msg.sender.transfer(payments[_txId].amount);
+    if (_tokenAddress == 0x0) {
+      msg.sender.transfer(_amount);
     } else {
-      ERC20 token = ERC20(payments[_txId].tokenAddress);
-      require(token.transfer(msg.sender, payments[_txId].amount));
+      ERC20 token = ERC20(_tokenAddress);
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 
-  function aliceClaimsPayment(bytes32 _txId, bytes _secret) external {
-    require(
-      payments[_txId].state == PaymentState.BobMadePayment &&
-      msg.sender == payments[_txId].alice &&
-      block.number < payments[_txId].bobCanClaimAfter &&
-      ripemd160(sha256(_secret)) == payments[_txId].secretHash
+  function aliceClaimsPayment(
+    bytes32 _txId,
+    uint _amount,
+    uint _bobCanClaimAfter,
+    address _bob,
+    address _tokenAddress,
+    bytes _secret
+  ) external {
+    require(payments[_txId].state == PaymentState.BobMadePayment);
+    bytes20 paymentHash = ripemd160(
+      msg.sender,
+      _bob,
+      ripemd160(sha256(_secret)),
+      _tokenAddress,
+      _amount,
+      _bobCanClaimAfter
     );
+    require(block.number < _bobCanClaimAfter && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.AliceClaimedPayment;
-    if (payments[_txId].tokenAddress == 0x0) {
-      msg.sender.transfer(payments[_txId].amount);
+    if (_tokenAddress == 0x0) {
+      msg.sender.transfer(_amount);
     } else {
-      ERC20 token = ERC20(payments[_txId].tokenAddress);
-      require(token.transfer(msg.sender, payments[_txId].amount));
+      ERC20 token = ERC20(_tokenAddress);
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 }

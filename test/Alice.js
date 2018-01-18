@@ -24,12 +24,13 @@ contract('Alice', function(accounts) {
   beforeEach(async function () {
     this.alice = await Alice.new();
     this.token = await Token.new();
+    this.wrongToken = await Token.new();
     await this.token.transfer(accounts[1], web3.toWei('100'));
   });
 
   it('Should create contract with not initialized deals', async function () {
     const deal = await this.alice.deals(dealId);
-    assert.equal(deal[6].valueOf(), DEAL_UNINITIALIZED);
+    assert.equal(deal[1].valueOf(), DEAL_UNINITIALIZED);
   });
 
   it('Should allow to init ETH deal', async function () {
@@ -42,20 +43,7 @@ contract('Alice', function(accounts) {
     await this.alice.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
     const deal = await this.alice.deals(dealId);
 
-    // alice
-    assert.equal(deal[0], accounts[0]);
-    // bob
-    assert.equal(deal[1], accounts[1]);
-    // token address
-    assert.equal(deal[2], 0);
-    // amount
-    assert.equal(deal[3].toString(), web3.toWei('1'));
-    // Alice hash
-    assert.equal(deal[4], aliceHash);
-    // Bob hash
-    assert.equal(deal[5], bobHash);
-    // initialized status
-    assert.equal(deal[6].valueOf(), DEAL_INITIALIZED);
+    assert.equal(deal[1].valueOf(), DEAL_INITIALIZED);
 
     // should not allow to init again
     await this.alice.initEthDeal(...initParams, { value: 1 }).should.be.rejectedWith(EVMThrow);
@@ -64,31 +52,19 @@ contract('Alice', function(accounts) {
   it('Should allow to init using ERC20 token', async function () {
     const initParams = [
       dealId,
+      web3.toWei('1'),
       accounts[1],
       aliceHash,
       bobHash,
-      this.token.address,
-      web3.toWei('1')
+      this.token.address
     ];
 
     await this.token.approve(this.alice.address, web3.toWei('1'), { from: accounts[0] });
     await this.alice.initErc20Deal(...initParams).should.be.fulfilled;
 
     const deal = await this.alice.deals(dealId);
-    // alice
-    assert.equal(deal[0], accounts[0]);
-    // bob
-    assert.equal(deal[1], accounts[1]);
-    // token address
-    assert.equal(deal[2], this.token.address);
-    // amount
-    assert.equal(deal[3].toString(), web3.toWei('1'));
-    // Alice hash
-    assert.equal(deal[4], aliceHash);
-    // Bob hash
-    assert.equal(deal[5], bobHash);
     // initialized status
-    assert.equal(deal[6].valueOf(), DEAL_INITIALIZED);
+    assert.equal(deal[1].valueOf(), DEAL_INITIALIZED);
 
     // check Alice contract token balance
     const balance = await this.token.balanceOf(this.alice.address);
@@ -107,22 +83,25 @@ contract('Alice', function(accounts) {
     ];
 
     // should not allow to claim payment from uninitialized deal
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.alice.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
 
     // should not allow to claim with invalid secret
-    await this.alice.bobClaimsPayment(dealId, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[0], bobHash, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+    // should not allow to claim wrong amount
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('2'), '0x0', accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // should not allow to claim from address not equal to bob
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[0], bobHash, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     const balanceBefore = web3.eth.getBalance(accounts[1]);
 
     // default ganache-cli gas price
     const gasPrice = web3.toWei('100', 'gwei');
-    const tx = await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.fulfilled;
+    const tx = await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[1]);
 
     const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
@@ -131,47 +110,50 @@ contract('Alice', function(accounts) {
 
     const deal = await this.alice.deals(dealId);
     // check payment sent status
-    assert.equal(deal[6].valueOf(), DEAL_PAYMENT_SENT_TO_BOB);
+    assert.equal(deal[1].valueOf(), DEAL_PAYMENT_SENT_TO_BOB);
 
     // should not allow to claim again
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
   });
 
   it('Should allow Bob to claim and receive ERC20 payment using Alice secret', async function () {
     const initParams = [
       dealId,
+      web3.toWei('1'),
       accounts[1],
       aliceHash,
       bobHash,
-      this.token.address,
-      web3.toWei('1')
+      this.token.address
     ];
 
     // should not allow to claim payment from uninitialized deal
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.token.approve(this.alice.address, web3.toWei('1'), { from: accounts[0] });
     await this.alice.initErc20Deal(...initParams).should.be.fulfilled;
 
     // should not allow to claim with invalid secret
-    await this.alice.bobClaimsPayment(dealId, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[0], bobHash, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // should not allow to claim from address not equal to bob
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[0], bobHash, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.fulfilled;
+    // should not allow to claim invalid amount
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('2'), this.token.address, accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[1]);
 
-    // check receiver balance - correct amount should be sent
+    // check bob balance - correct amount should be sent
     assert.equal(balanceAfter.toString(), web3.toWei('101'));
 
     const deal = await this.alice.deals(dealId);
     // check payment sent status
-    assert.equal(deal[6].valueOf(), DEAL_PAYMENT_SENT_TO_BOB);
+    assert.equal(deal[1].valueOf(), DEAL_PAYMENT_SENT_TO_BOB);
 
     // should not allow to claim again
-    await this.alice.bobClaimsPayment(dealId, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
+    await this.alice.bobClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[0], bobHash, aliceSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);;
   });
 
   it('Should allow Alice claim ETH payment using Bob secret', async function () {
@@ -183,22 +165,25 @@ contract('Alice', function(accounts) {
     ];
 
     // should not allow to claim from uninitialized deal
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.alice.initEthDeal(...initParams, { value: web3.toWei('1') }).should.be.fulfilled;
 
     // should not allow to claim with invalid secret
-    await this.alice.aliceClaimsPayment(dealId, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[1], aliceHash, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // should not allow to claim from non-Alice address
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[1], aliceHash, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+    // should not allow to claim wrong amount
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('2'), '0x0', accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     const balanceBefore = web3.eth.getBalance(accounts[0]);
 
     // default ganache-cli gas price
     const gasPrice = web3.toWei('100', 'gwei');
-    const tx = await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.fulfilled;
+    const tx = await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[0]);
 
     const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
@@ -207,46 +192,52 @@ contract('Alice', function(accounts) {
 
     const deal = await this.alice.deals(dealId);
     // check payment sent status
-    assert.equal(deal[6].valueOf(), DEAL_PAYMENT_SENT_TO_ALICE);
+    assert.equal(deal[1].valueOf(), DEAL_PAYMENT_SENT_TO_ALICE);
 
     // should not allow to claim again
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), '0x0', accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
   });
 
   it('Should allow Alice to claim payment ERC20 using Bob secret', async function () {
     const initParams = [
       dealId,
+      web3.toWei('1'),
       accounts[1],
       aliceHash,
       bobHash,
-      this.token.address,
-      web3.toWei('1')
+      this.token.address
     ];
 
     // should not allow to claim from uninitialized deal
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // init
     await this.token.approve(this.alice.address, web3.toWei('1'), { from: accounts[0] });
     await this.alice.initErc20Deal(...initParams).should.be.fulfilled;
 
     // should not allow to claim with invalid secret
-    await this.alice.aliceClaimsPayment(dealId, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[1], aliceHash, aliceSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // should not allow to claim from non-Alice address
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.fulfilled;
+    // should not allow to claim wrong amount
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('2'), this.token.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+    // should not allow to claim wrong token
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.wrongToken.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[0]);
 
     const deal = await this.alice.deals(dealId);
     // check confirmed status
-    assert.equal(deal[6].valueOf(), DEAL_PAYMENT_SENT_TO_ALICE);
+    assert.equal(deal[1].valueOf(), DEAL_PAYMENT_SENT_TO_ALICE);
 
     // check initiator balance
     assert.equal(balanceAfter.toString(), web3.toWei('900'));
 
     // should not allow to claim again
-    await this.alice.aliceClaimsPayment(dealId, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.alice.aliceClaimsPayment(dealId, web3.toWei('1'), this.token.address, accounts[1], aliceHash, bobSecretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
   });
 });
