@@ -61,7 +61,7 @@ contract Alice {
       DealState.Initialized
     );
     ERC20 token = ERC20(_tokenAddress);
-    require(token.transferFrom(msg.sender, address(this), _amount));
+    assert(token.transferFrom(msg.sender, address(this), _amount));
   }
 
   function aliceClaimsPayment(
@@ -88,7 +88,7 @@ contract Alice {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
-      require(token.transfer(msg.sender, _amount));
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 
@@ -115,7 +115,7 @@ contract Alice {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
-      require(token.transfer(msg.sender, _amount));
+      assert(token.transfer(msg.sender, _amount));
     }
   }
 }

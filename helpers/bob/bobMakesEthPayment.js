@@ -31,7 +31,7 @@ function initEthDeal() {
           process.exit();
         })
         .then((receipt) => {
-          console.log('deposit made');
+          console.log('payment made');
           console.log(receipt);
           process.exit();
         });

@@ -4,7 +4,14 @@ const config = require('../config');
 
 async function method() {
   const contract = new web3.eth.Contract(config.bob.abi, config.bob.address);
-  const method = contract.methods.bobClaimsDeposit(process.argv[2], process.argv[3]);
+  const method = contract.methods.bobClaimsDeposit(
+    process.argv[2],
+    web3.utils.toWei('1'),
+    process.argv[3],
+    config.deal.alice,
+    process.argv[4],
+    process.argv[5]
+  );
 
   const txInput = {
     to: config.bob.address,
