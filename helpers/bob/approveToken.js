@@ -4,7 +4,7 @@ const config = require('../config');
 
 async function approveToken() {
   const contract = new web3.eth.Contract(config.tokenContract.abi, config.tokenContract.address);
-  const method = contract.methods.approve(config.alice.address, web3.utils.toWei('1'));
+  const method = contract.methods.approve(config.bob.address, web3.utils.toWei('100'));
 
   const txInput = {
     to: config.tokenContract.address,
@@ -13,7 +13,7 @@ async function approveToken() {
     data: method.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK)
+  web3.eth.accounts.signTransaction(txInput, process.env.BOB_PK)
     .then((transaction) => {
       web3.eth.sendSignedTransaction(transaction.rawTransaction)
         .on('transactionHash', (transactionHash) => {

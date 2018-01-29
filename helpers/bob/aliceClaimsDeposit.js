@@ -2,13 +2,13 @@ const Web3 = require('web3');
 const web3 = new Web3(process.env.ETH_RPC_URL);
 const config = require('../config');
 
-async function claimPayment() {
+async function method() {
   const contract = new web3.eth.Contract(config.bob.abi, config.bob.address);
-  const method = contract.methods.bobClaimsPayment(
+  const method = contract.methods.aliceClaimsDeposit(
     process.argv[2],
     web3.utils.toWei('1'),
     process.argv[3],
-    config.deal.alice,
+    config.deal.bob,
     process.argv[4],
     process.argv[5]
   );
@@ -20,7 +20,7 @@ async function claimPayment() {
     data: method.encodeABI()
   };
 
-  web3.eth.accounts.signTransaction(txInput, process.env.BOB_PK)
+  web3.eth.accounts.signTransaction(txInput, process.env.ALICE_PK)
     .then(transaction => {
       web3.eth.sendSignedTransaction(transaction.rawTransaction)
         .on('transactionHash', transactionHash => {
@@ -35,11 +35,11 @@ async function claimPayment() {
           process.exit();
         })
         .then((receipt) => {
-          console.log('transaction confirmed');
+          console.log('got receipt');
           console.log(receipt);
           process.exit();
         });
     });
 }
 
-claimPayment();
+method();

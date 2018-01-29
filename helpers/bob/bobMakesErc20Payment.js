@@ -1,29 +1,31 @@
 const Web3 = require('web3');
-const web3 = new Web3(process.env.ETH_RPC_URL);
 const config = require('../config');
 
-async function claimPayment() {
+const web3 = new Web3(process.env.ETH_RPC_URL);
+
+function initEthDeal() {
   const contract = new web3.eth.Contract(config.bob.abi, config.bob.address);
-  const method = contract.methods.bobClaimsPayment(
+  // get deal id and hashes from command line
+  const method = contract.methods.bobMakesErc20Payment(
     process.argv[2],
     web3.utils.toWei('1'),
-    process.argv[3],
     config.deal.alice,
-    process.argv[4],
-    process.argv[5]
+    process.argv[3],
+    config.tokenContract.address
   );
 
   const txInput = {
     to: config.bob.address,
+    value: 0,
     gas: 300000,
     gasPrice: web3.utils.toWei('100', 'gwei'),
     data: method.encodeABI()
   };
 
   web3.eth.accounts.signTransaction(txInput, process.env.BOB_PK)
-    .then(transaction => {
+    .then((transaction) => {
       web3.eth.sendSignedTransaction(transaction.rawTransaction)
-        .on('transactionHash', transactionHash => {
+        .on('transactionHash', (transactionHash) => {
           console.log(`txHash: ${ transactionHash }`);
         })
         .on('error', (error) => {
@@ -35,11 +37,11 @@ async function claimPayment() {
           process.exit();
         })
         .then((receipt) => {
-          console.log('transaction confirmed');
+          console.log('deposit made');
           console.log(receipt);
           process.exit();
         });
     });
 }
 
-claimPayment();
+initEthDeal();
