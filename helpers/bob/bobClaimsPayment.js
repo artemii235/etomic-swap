@@ -7,10 +7,9 @@ async function claimPayment() {
   const method = contract.methods.bobClaimsPayment(
     process.argv[2],
     web3.utils.toWei('1'),
-    process.argv[3],
     config.deal.alice,
-    process.argv[4],
-    process.argv[5]
+    process.argv[3],
+    process.argv[4]
   );
 
   const txInput = {
