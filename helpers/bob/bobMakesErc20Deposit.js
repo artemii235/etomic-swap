@@ -11,7 +11,8 @@ function initEthDeal() {
     web3.utils.toWei('1'),
     config.deal.alice,
     process.argv[3],
-    config.tokenContract.address
+    config.tokenContract.address,
+    Math.floor(Date.now() / 1000) + 720
   );
 
   const txInput = {

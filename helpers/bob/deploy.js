@@ -7,7 +7,7 @@ async function deploy() {
 
   const deploy = contract.deploy({
     data: config.bob.byteCode,
-    arguments: [config.bob.blocksPerDeal]
+    arguments: []
   });
 
   const txInput = {

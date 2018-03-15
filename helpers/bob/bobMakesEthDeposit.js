@@ -6,7 +6,7 @@ const web3 = new Web3(process.env.ETH_RPC_URL);
 function initEthDeal() {
   const contract = new web3.eth.Contract(config.bob.abi, config.bob.address);
   // get deal id and hashes from command line
-  const method = contract.methods.bobMakesEthDeposit(process.argv[2], config.deal.alice, process.argv[3]);
+  const method = contract.methods.bobMakesEthDeposit(process.argv[2], config.deal.alice, process.argv[3], Math.floor(Date.now() / 1000) + Number(process.argv[4]));
 
   const txInput = {
     to: config.bob.address,

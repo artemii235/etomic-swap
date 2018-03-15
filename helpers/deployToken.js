@@ -13,7 +13,7 @@ async function deploy() {
     to: null,
     amount: '0',
     gas: (await deploy.estimateGas()) + 300000,
-    gasPrice: web3.utils.toWei('100', 'gwei'),
+    gasPrice: web3.utils.toWei('4', 'gwei'),
     data: deploy.encodeABI()
   };
 

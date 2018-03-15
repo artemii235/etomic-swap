@@ -9,8 +9,7 @@ async function method() {
     web3.utils.toWei('1'),
     process.argv[3],
     config.deal.bob,
-    process.argv[4],
-    process.argv[5]
+    process.argv[4]
   );
 
   const txInput = {
