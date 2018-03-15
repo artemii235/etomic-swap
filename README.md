@@ -31,7 +31,7 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
-1. To run helper scripts set `INITIATOR_PK`, `RECEIVER_PK` in .env file. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
+1. To run helper scripts set `ALICE_PK`, `BOB_PK` in .env file. These variables should contain valid Ethereum private keys - these keys stay at your local machine, however it's not recommended to put keys having access to real money.
 
 ## Related links
 
