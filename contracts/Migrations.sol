@@ -1,12 +1,10 @@
 pragma solidity ^0.4.4;
-import "zeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract Migrations is Ownable {
   uint public last_completed_migration;
 
-  function Migrations() public {
-
-  }
+  constructor() public { }
 
   function setCompleted(uint completed) public onlyOwner {
     last_completed_migration = completed;

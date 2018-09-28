@@ -56,6 +56,7 @@ contract('Bob', function(accounts) {
       txId,
       accounts[1],
       secretHash,
+      secretHash,
       lockTime
     ];
     await this.bob.bobMakesEthDeposit(...params, { value: web3.toWei('1') }).should.be.fulfilled;
@@ -77,6 +78,7 @@ contract('Bob', function(accounts) {
       txId,
       web3.toWei('1'),
       accounts[1],
+      secretHash,
       secretHash,
       this.token.address,
       lockTime
@@ -106,27 +108,28 @@ contract('Bob', function(accounts) {
       txId,
       accounts[1],
       secretHash,
+      secretHash,
       lockTime
     ];
 
     // not allow to claim if deposit was not sent
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
 
     const depositTx = await this.bob.bobMakesEthDeposit(...params, { value: web3.toWei('1') }).should.be.fulfilled;
 
     // not allow to claim with invalid secret
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), txId, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), txId, secretHash, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
     // not allow to claim wrong value
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('2'), secretHex, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('2'), secretHex, secretHash, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
     // not allow to claim from not Bob address
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], '0x0', { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], '0x0', { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // success claim
     const balanceBefore = web3.eth.getBalance(accounts[0]);
 
     // default ganache-cli gas price
     const gasPrice = web3.toWei('100', 'gwei');
-    const tx = await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], '0x0').should.be.fulfilled;
+    const tx = await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], '0x0').should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[0]);
 
     const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
@@ -139,7 +142,7 @@ contract('Bob', function(accounts) {
     assert.equal(deposit[2].valueOf(), BOB_CLAIMED_DEPOSIT);
 
     // should not allow to claim again
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], '0x0').should.be.rejectedWith(EVMThrow);
   });
 
   it('should allow Bob to claim ERC20 deposit by revealing the secret', async function () {
@@ -149,25 +152,26 @@ contract('Bob', function(accounts) {
       web3.toWei('1'),
       accounts[1],
       secretHash,
+      secretHash,
       this.token.address,
       lockTime
     ];
 
     // not allow to claim if deposit was not sent
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
 
     await this.token.approve(this.bob.address, web3.toWei('1'));
     const depositTx = await this.bob.bobMakesErc20Deposit(...params).should.be.fulfilled;
 
     // not allow to claim with invalid secret
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), txId, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), txId, secretHash, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
     // not allow to claim wrong value
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('2'), secretHex, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('2'), secretHex, secretHash, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
     // not allow to claim from not Bob address
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], this.token.address, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], this.token.address, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     // success claim
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], this.token.address).should.be.fulfilled;
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], this.token.address).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[0]);
 
     // check bob balance
@@ -179,7 +183,7 @@ contract('Bob', function(accounts) {
     assert.equal(deposit[2].valueOf(), BOB_CLAIMED_DEPOSIT);
 
     // should not allow to claim again
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], this.token.address).should.be.rejectedWith(EVMThrow);
   });
 
   it('should allow Alice to claim ETH deposit after locktime expires', async function () {
@@ -188,30 +192,31 @@ contract('Bob', function(accounts) {
       txId,
       accounts[1],
       secretHash,
+      secretHash,
       lockTime
     ];
 
     // not allow to claim if deposit not sent
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     await this.bob.bobMakesEthDeposit(...params, { value: web3.toWei('1') }).should.be.fulfilled;
 
     // not allow to claim before lock expires
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     await increaseTime(1000);
     // not allow bob to claim even by revealing correct secret
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), accounts[1], '0x0', secretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], '0x0', { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // not allow to claim from incorrect address
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], '0x0', secretHash, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], '0x0', secretHash, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // success claim
     const balanceBefore = web3.eth.getBalance(accounts[1]);
 
     // default ganache-cli gas price
     const gasPrice = web3.toWei('100', 'gwei');
-    const tx = await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.fulfilled;
+    const tx = await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = web3.eth.getBalance(accounts[1]);
 
     const txFee = web3.toBigNumber(gasPrice).mul(web3.toBigNumber(tx.receipt.gasUsed));
@@ -224,7 +229,7 @@ contract('Bob', function(accounts) {
     assert.equal(deposit[2].valueOf(), ALICE_CLAIMED_DEPOSIT);
 
     // should not allow to claim again
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], '0x0', secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
   });
 
   it('should allow Alice to claim ERC deposit after locktime expires', async function () {
@@ -234,28 +239,29 @@ contract('Bob', function(accounts) {
       web3.toWei('1'),
       accounts[1],
       secretHash,
+      secretHash,
       this.token.address,
       lockTime
     ];
 
     // not allow to claim if deposit not sent
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     await this.token.approve(this.bob.address, web3.toWei('1'));
     await this.bob.bobMakesErc20Deposit(...params).should.be.fulfilled;
 
     // not allow to claim before timelock expires
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
     await increaseTime(1000);
     // not allow bob to claim even by revealing correct secret
-    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), accounts[1], this.token.address, secretHex, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.bobClaimsDeposit(txId, web3.toWei('1'), secretHex, secretHash, accounts[1], this.token.address,{ from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // not allow to claim from incorrect address
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], this.token.address, secretHash, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], this.token.address, secretHash, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
 
     // success claim
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.fulfilled;
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], this.token.address, secretHash, secret, { from: accounts[1] }).should.be.fulfilled;
     const balanceAfter = await this.token.balanceOf(accounts[1]);
 
     // check alice balance
@@ -267,7 +273,7 @@ contract('Bob', function(accounts) {
     assert.equal(deposit[2].valueOf(), ALICE_CLAIMED_DEPOSIT);
 
     // should not allow to claim again
-    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), accounts[0], this.token.address, secretHash, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    await this.bob.aliceClaimsDeposit(txId, web3.toWei('1'), secretHex, accounts[0], this.token.address, secretHash, secret, { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
   });
 
   it('should allow Bob to make ETH payment', async function () {

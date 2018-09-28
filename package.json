@@ -13,12 +13,12 @@
   "dependencies": {
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
-    "ganache-cli": "^6.1.0",
+    "ganache-cli": "^6.1.8",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",
     "ripemd160": "^2.0.1",
     "sol-merger": "^0.1.0",
     "web3": "^1.0.0-beta.27",
-    "zeppelin-solidity": "^1.2.0"
+    "openzeppelin-solidity": "^1.12.0"
   }
 }
