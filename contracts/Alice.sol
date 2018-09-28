@@ -1,5 +1,5 @@
-pragma solidity ^0.4.18;
-import 'zeppelin-solidity/contracts/token/ERC20.sol';
+pragma solidity ^0.4.24;
+import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 
 contract Alice {
   enum DealState {
@@ -16,7 +16,7 @@ contract Alice {
 
   mapping (bytes32 => Deal) public deals;
 
-  function Alice() { }
+  constructor() public { }
 
   function initEthDeal(
     bytes32 _dealId,
@@ -25,14 +25,14 @@ contract Alice {
     bytes20 _bobHash
   ) external payable {
     require(_bob != 0x0 && msg.value > 0 && deals[_dealId].state == DealState.Uninitialized);
-    bytes20 dealHash = ripemd160(
+    bytes20 dealHash = ripemd160(abi.encodePacked(
       msg.sender,
       _aliceHash,
       _bob,
       _bobHash,
       msg.value,
       address(0)
-    );
+    ));
     deals[_dealId] = Deal(
       dealHash,
       DealState.Initialized
@@ -48,14 +48,14 @@ contract Alice {
     address _tokenAddress
   ) external {
     require(_bob != 0x0 && _tokenAddress != 0x0 && _amount > 0 && deals[_dealId].state == DealState.Uninitialized);
-    bytes20 dealHash = ripemd160(
+    bytes20 dealHash = ripemd160(abi.encodePacked(
       msg.sender,
       _aliceHash,
       _bob,
       _bobHash,
       _amount,
       _tokenAddress
-    );
+    ));
     deals[_dealId] = Deal(
       dealHash,
       DealState.Initialized
@@ -73,14 +73,14 @@ contract Alice {
     bytes _bobSecret
   ) external {
     require(deals[_dealId].state == DealState.Initialized);
-    bytes20 dealHash = ripemd160(
+    bytes20 dealHash = ripemd160(abi.encodePacked(
       msg.sender,
       _aliceHash,
       _bob,
-      ripemd160(sha256(_bobSecret)),
+      ripemd160(abi.encodePacked(sha256(abi.encodePacked(_bobSecret)))),
       _amount,
       _tokenAddress
-    );
+    ));
     require(dealHash == deals[_dealId].dealHash);
 
     deals[_dealId].state = DealState.PaymentSentToAlice;
@@ -101,14 +101,14 @@ contract Alice {
     bytes _aliceSecret
   ) external {
     require(deals[_dealId].state == DealState.Initialized);
-    bytes20 dealHash = ripemd160(
+    bytes20 dealHash = ripemd160(abi.encodePacked(
       _alice,
-      ripemd160(sha256(_aliceSecret)),
+      ripemd160(abi.encodePacked(sha256(abi.encodePacked(_aliceSecret)))),
       msg.sender,
       _bobHash,
       _amount,
       _tokenAddress
-    );
+    ));
     require(dealHash == deals[_dealId].dealHash);
     deals[_dealId].state = DealState.PaymentSentToBob;
     if (_tokenAddress == 0x0) {

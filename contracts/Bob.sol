@@ -1,6 +1,6 @@
-pragma solidity ^0.4.18;
-import 'zeppelin-solidity/contracts/math/SafeMath.sol';
-import 'zeppelin-solidity/contracts/token/ERC20.sol';
+pragma solidity ^0.4.24;
+import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
+import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 
 contract Bob {
   using SafeMath for uint;
@@ -35,23 +35,24 @@ contract Bob {
 
   mapping (bytes32 => BobPayment) public payments;
 
-  function Bob() {
-  }
+  constructor() public { }
 
   function bobMakesEthDeposit(
     bytes32 _txId,
     address _alice,
-    bytes20 _secretHash,
+    bytes20 _bobHash,
+    bytes20 _aliceHash,
     uint64 _lockTime
   ) external payable {
     require(_alice != 0x0 && msg.value > 0 && deposits[_txId].state == DepositState.Uninitialized);
-    bytes20 depositHash = ripemd160(
+    bytes20 depositHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
-      _secretHash,
+      _bobHash,
+      _aliceHash,
       address(0),
       msg.value
-    );
+    ));
     deposits[_txId] = BobDeposit(
       depositHash,
       _lockTime,
@@ -63,17 +64,19 @@ contract Bob {
     bytes32 _txId,
     uint256 _amount,
     address _alice,
-    bytes20 _secretHash,
+    bytes20 _bobHash,
+    bytes20 _aliceHash,
     address _tokenAddress,
     uint64 _lockTime
   ) external {
-    bytes20 depositHash = ripemd160(
+    bytes20 depositHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
-      _secretHash,
+      _bobHash,
+      _aliceHash,
       _tokenAddress,
       _amount
-    );
+    ));
     deposits[_txId] = BobDeposit(
       depositHash,
       _lockTime,
@@ -86,18 +89,20 @@ contract Bob {
   function bobClaimsDeposit(
     bytes32 _txId,
     uint256 _amount,
-    bytes32 _secret,
+    bytes32 _bobSecret,
+    bytes20 _aliceHash,
     address _alice,
     address _tokenAddress
   ) external {
     require(deposits[_txId].state == DepositState.BobMadeDeposit);
-    bytes20 depositHash = ripemd160(
+    bytes20 depositHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
-      ripemd160(sha256(_secret)),
+      ripemd160(abi.encodePacked(sha256(abi.encodePacked(_bobSecret)))),
+      _aliceHash,
       _tokenAddress,
       _amount
-    );
+    ));
     require(depositHash == deposits[_txId].depositHash && now < deposits[_txId].lockTime);
     deposits[_txId].state = DepositState.BobClaimedDeposit;
     if (_tokenAddress == 0x0) {
@@ -111,18 +116,20 @@ contract Bob {
   function aliceClaimsDeposit(
     bytes32 _txId,
     uint256 _amount,
+    bytes32 _aliceSecret,
     address _bob,
     address _tokenAddress,
-    bytes20 _secretHash
+    bytes20 _bobHash
   ) external {
     require(deposits[_txId].state == DepositState.BobMadeDeposit);
-    bytes20 depositHash = ripemd160(
+    bytes20 depositHash = ripemd160(abi.encodePacked(
       msg.sender,
       _bob,
-      _secretHash,
+      _bobHash,
+      ripemd160(abi.encodePacked(sha256(abi.encodePacked(_aliceSecret)))),
       _tokenAddress,
       _amount
-    );
+    ));
     require(depositHash == deposits[_txId].depositHash && now >= deposits[_txId].lockTime);
     deposits[_txId].state = DepositState.AliceClaimedDeposit;
     if (_tokenAddress == 0x0) {
@@ -140,13 +147,13 @@ contract Bob {
     uint64 _lockTime
   ) external payable {
     require(_alice != 0x0 && msg.value > 0 && payments[_txId].state == PaymentState.Uninitialized);
-    bytes20 paymentHash = ripemd160(
+    bytes20 paymentHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
       _secretHash,
       address(0),
       msg.value
-    );
+    ));
     payments[_txId] = BobPayment(
       paymentHash,
       _lockTime,
@@ -168,13 +175,13 @@ contract Bob {
       payments[_txId].state == PaymentState.Uninitialized &&
       _tokenAddress != 0x0
     );
-    bytes20 paymentHash = ripemd160(
+    bytes20 paymentHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
       _secretHash,
       _tokenAddress,
       _amount
-    );
+    ));
     payments[_txId] = BobPayment(
       paymentHash,
       _lockTime,
@@ -192,13 +199,13 @@ contract Bob {
     bytes20 _secretHash
   ) external {
     require(payments[_txId].state == PaymentState.BobMadePayment);
-    bytes20 paymentHash = ripemd160(
+    bytes20 paymentHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
       _secretHash,
       _tokenAddress,
       _amount
-    );
+    ));
     require(now >= payments[_txId].lockTime && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.BobClaimedPayment;
     if (_tokenAddress == 0x0) {
@@ -217,13 +224,13 @@ contract Bob {
     address _tokenAddress
   ) external {
     require(payments[_txId].state == PaymentState.BobMadePayment);
-    bytes20 paymentHash = ripemd160(
+    bytes20 paymentHash = ripemd160(abi.encodePacked(
       msg.sender,
       _bob,
-      ripemd160(sha256(_secret)),
+      ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
       _tokenAddress,
       _amount
-    );
+    ));
     require(now < payments[_txId].lockTime && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.AliceClaimedPayment;
     if (_tokenAddress == 0x0) {
