@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 import 'openzeppelin-solidity/contracts/math/SafeMath.sol';
 import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 
@@ -44,7 +44,7 @@ contract Bob {
     bytes20 _aliceHash,
     uint64 _lockTime
   ) external payable {
-    require(_alice != 0x0 && msg.value > 0 && deposits[_txId].state == DepositState.Uninitialized);
+    require(_alice != address(0) && msg.value > 0 && deposits[_txId].state == DepositState.Uninitialized);
     bytes20 depositHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
@@ -105,7 +105,7 @@ contract Bob {
     ));
     require(depositHash == deposits[_txId].depositHash && now < deposits[_txId].lockTime);
     deposits[_txId].state = DepositState.BobClaimedDeposit;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
@@ -132,7 +132,7 @@ contract Bob {
     ));
     require(depositHash == deposits[_txId].depositHash && now >= deposits[_txId].lockTime);
     deposits[_txId].state = DepositState.AliceClaimedDeposit;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
@@ -146,7 +146,7 @@ contract Bob {
     bytes20 _secretHash,
     uint64 _lockTime
   ) external payable {
-    require(_alice != 0x0 && msg.value > 0 && payments[_txId].state == PaymentState.Uninitialized);
+    require(_alice != address(0) && msg.value > 0 && payments[_txId].state == PaymentState.Uninitialized);
     bytes20 paymentHash = ripemd160(abi.encodePacked(
       _alice,
       msg.sender,
@@ -170,10 +170,10 @@ contract Bob {
     uint64 _lockTime
   ) external {
     require(
-      _alice != 0x0 &&
+      _alice != address(0) &&
       _amount > 0 &&
       payments[_txId].state == PaymentState.Uninitialized &&
-      _tokenAddress != 0x0
+      _tokenAddress != address(0)
     );
     bytes20 paymentHash = ripemd160(abi.encodePacked(
       _alice,
@@ -208,7 +208,7 @@ contract Bob {
     ));
     require(now >= payments[_txId].lockTime && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.BobClaimedPayment;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
@@ -233,7 +233,7 @@ contract Bob {
     ));
     require(now < payments[_txId].lockTime && paymentHash == payments[_txId].paymentHash);
     payments[_txId].state = PaymentState.AliceClaimedPayment;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);

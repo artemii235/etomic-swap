@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 import 'openzeppelin-solidity/contracts/token/ERC20/ERC20.sol';
 
 contract Alice {
@@ -24,7 +24,7 @@ contract Alice {
     bytes20 _aliceHash,
     bytes20 _bobHash
   ) external payable {
-    require(_bob != 0x0 && msg.value > 0 && deals[_dealId].state == DealState.Uninitialized);
+    require(_bob != address(0) && msg.value > 0 && deals[_dealId].state == DealState.Uninitialized);
     bytes20 dealHash = ripemd160(abi.encodePacked(
       msg.sender,
       _aliceHash,
@@ -47,7 +47,7 @@ contract Alice {
     bytes20 _bobHash,
     address _tokenAddress
   ) external {
-    require(_bob != 0x0 && _tokenAddress != 0x0 && _amount > 0 && deals[_dealId].state == DealState.Uninitialized);
+    require(_bob != address(0) && _tokenAddress != address(0) && _amount > 0 && deals[_dealId].state == DealState.Uninitialized);
     bytes20 dealHash = ripemd160(abi.encodePacked(
       msg.sender,
       _aliceHash,
@@ -70,7 +70,7 @@ contract Alice {
     address _tokenAddress,
     address _bob,
     bytes20 _aliceHash,
-    bytes _bobSecret
+    bytes calldata _bobSecret
   ) external {
     require(deals[_dealId].state == DealState.Initialized);
     bytes20 dealHash = ripemd160(abi.encodePacked(
@@ -84,7 +84,7 @@ contract Alice {
     require(dealHash == deals[_dealId].dealHash);
 
     deals[_dealId].state = DealState.PaymentSentToAlice;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
@@ -98,7 +98,7 @@ contract Alice {
     address _tokenAddress,
     address _alice,
     bytes20 _bobHash,
-    bytes _aliceSecret
+    bytes calldata _aliceSecret
   ) external {
     require(deals[_dealId].state == DealState.Initialized);
     bytes20 dealHash = ripemd160(abi.encodePacked(
@@ -111,7 +111,7 @@ contract Alice {
     ));
     require(dealHash == deals[_dealId].dealHash);
     deals[_dealId].state = DealState.PaymentSentToBob;
-    if (_tokenAddress == 0x0) {
+    if (_tokenAddress == address(0)) {
       msg.sender.transfer(_amount);
     } else {
       ERC20 token = ERC20(_tokenAddress);
