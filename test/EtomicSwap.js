@@ -273,4 +273,73 @@ contract('EtomicSwap', function(accounts) {
         // should not allow to spend again
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
+
+    it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
+
+        await increaseTime(1000);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+
+        const tx = await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const txFee = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(tx.receipt.gasUsed));
+
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.fulfilled;
+
+        await increaseTime(1000);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
 });
