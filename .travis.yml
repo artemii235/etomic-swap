@@ -4,7 +4,6 @@ services:
   - docker
 
 before_install:
-  - cp .env.empty .env
   - docker-compose build
   - docker-compose up -d
 
