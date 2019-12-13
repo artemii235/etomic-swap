@@ -94,7 +94,7 @@ contract EtomicSwap {
                 _amount
             ));
 
-        require(paymentHash == payments[_id].paymentHash && now < payments[_id].lockTime);
+        require(paymentHash == payments[_id].paymentHash);
         payments[_id].state = PaymentState.ReceivedSpent;
         if (_tokenAddress == address(0)) {
             msg.sender.transfer(_amount);
