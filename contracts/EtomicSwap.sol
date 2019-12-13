@@ -129,7 +129,7 @@ contract EtomicSwap {
     function senderRefund(
         bytes32 _id,
         uint256 _amount,
-        bytes20 _paymentHash,
+        bytes calldata _secretHash,
         address _tokenAddress,
         address _receiver
     ) external {
@@ -138,7 +138,7 @@ contract EtomicSwap {
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
                 msg.sender,
-                _paymentHash,
+                _secretHash,
                 _tokenAddress,
                 _amount
             ));
