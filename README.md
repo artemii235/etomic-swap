@@ -1,6 +1,6 @@
 # Etomic Swap Smart Contracts for BarterDex platform.
 [![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)  
-Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
+Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on AtomicDex platform.
 Please note that this project is not production ready yet!
 
 ## Swap workflow
@@ -23,7 +23,6 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 
 1. Install docker.
 1. Run `docker-compose build`.
-1. `cp .env.empty .env`.
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
@@ -31,6 +30,7 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Related links
 
 1. Komodo platform - https://www.komodoplatform.com
+1. AtomicDEX - https://atomicdex.io
 
 ## Useful links for smart contracts development
 

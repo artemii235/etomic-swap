@@ -9,10 +9,16 @@ contract EtomicSwap {
         SenderRefunded
     }
 
+    enum SecretHashAlgo {
+        Ripe160Sha256,
+        Sha256
+    }
+
     struct Payment {
         bytes20 paymentHash;
         uint64 lockTime;
         PaymentState state;
+        SecretHashAlgo secret_hash_algo;
     }
 
     mapping (bytes32 => Payment) public payments;
@@ -26,10 +32,12 @@ contract EtomicSwap {
     function ethPayment(
         bytes32 _id,
         address _receiver,
-        bytes20 _secretHash,
-        uint64 _lockTime
+        uint64 _lockTime,
+        SecretHashAlgo _algo,
+        bytes calldata _secretHash
     ) external payable {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -42,7 +50,8 @@ contract EtomicSwap {
         payments[_id] = Payment(
             paymentHash,
             _lockTime,
-            PaymentState.PaymentSent
+            PaymentState.PaymentSent,
+            _algo
         );
 
         emit PaymentSent(_id);
@@ -53,10 +62,12 @@ contract EtomicSwap {
         uint256 _amount,
         address _tokenAddress,
         address _receiver,
-        bytes20 _secretHash,
-        uint64 _lockTime
+        uint64 _lockTime,
+        SecretHashAlgo _algo,
+        bytes calldata _secretHash
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -69,7 +80,8 @@ contract EtomicSwap {
         payments[_id] = Payment(
             paymentHash,
             _lockTime,
-            PaymentState.PaymentSent
+            PaymentState.PaymentSent,
+            _algo
         );
 
         IERC20 token = IERC20(_tokenAddress);
@@ -85,11 +97,19 @@ contract EtomicSwap {
         address _sender
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent);
+        bytes memory expected_hash;
+        if (payments[_id].secret_hash_algo == SecretHashAlgo.Ripe160Sha256) {
+            expected_hash = abi.encodePacked(ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))));
+        } else if (payments[_id].secret_hash_algo == SecretHashAlgo.Sha256) {
+            expected_hash = abi.encodePacked(sha256(abi.encodePacked(_secret)));
+        } else {
+            revert("Unknown secret hash algo");
+        }
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 msg.sender,
                 _sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+                expected_hash,
                 _tokenAddress,
                 _amount
             ));

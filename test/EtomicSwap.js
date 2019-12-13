@@ -29,9 +29,11 @@ async function currentEvmTime() {
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
+const [RIPE_SHA256, SHA256] = [0, 1];
 
 const secret = crypto.randomBytes(32);
-const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
+const secretHashRipeSha = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
+const secretHashSha = '0x' + crypto.createHash('sha256').update(secret).digest('hex');
 const secretHex = '0x' + secret.toString('hex');
 
 const zeroAddr = '0x0000000000000000000000000000000000000000';
@@ -54,8 +56,9 @@ contract('EtomicSwap', function(accounts) {
         const params = [
             id,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
 
@@ -70,6 +73,18 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.rejectedWith(EVMThrow);
     });
 
+    it('should not allow to send ETH payment with invalid hash algo identifier', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            lockTime,
+            2,
+            secretHashRipeSha
+        ];
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.rejectedWith(EVMThrow);
+    });
+
     it('should allow to send ERC20 payment', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
@@ -77,8 +92,9 @@ contract('EtomicSwap', function(accounts) {
             web3.utils.toWei('1'),
             this.token.address,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         await this.token.approve(this.swap.address, web3.utils.toWei('1'));
@@ -99,36 +115,53 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.erc20Payment(...params).should.be.rejectedWith(EVMThrow);
     });
 
+    it('should not allow to send ERC20 payment with invalid hash algo identifier', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            lockTime,
+            2,
+            secretHashRipeSha
+        ];
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.rejectedWith(EVMThrow);
+    });
+
     it('should allow sender to refund ETH payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         // not allow to refund if payment was not sent
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
 
         // not allow to refund before locktime
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         await increaseTime(1000);
 
         // not allow to call refund from non-sender address
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, zeroAddr, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
         // not allow to refund invalid amount
-        await this.swap.senderRefund(id, web3.utils.toWei('2'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('2'), secretHashRipeSha, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         // success refund
         const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[0]));
         const gasPrice = web3.utils.toWei('100', 'gwei');
 
-        const tx = await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1], { gasPrice }).should.be.fulfilled;
+        const tx = await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, zeroAddr, accounts[1], { gasPrice }).should.be.fulfilled;
         const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[0]));
 
         const txFee = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(tx.receipt.gasUsed));
@@ -139,7 +172,7 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(payment[2].valueOf(), SENDER_REFUNDED);
 
         // not allow to refund again
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
     });
 
     it('should allow sender to refund ERC20 payment after locktime', async function () {
@@ -149,31 +182,32 @@ contract('EtomicSwap', function(accounts) {
             web3.utils.toWei('1'),
             this.token.address,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         await this.token.approve(this.swap.address, web3.utils.toWei('1'));
         await this.swap.erc20Payment(...params).should.be.fulfilled;
 
         // not allow to refund if payment was not sent
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         // not allow to refund before locktime
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         await increaseTime(1000);
 
         // not allow to call refund from non-sender address
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, this.token.address, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
         // not allow to refund invalid amount
-        await this.swap.senderRefund(id, web3.utils.toWei('2'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('2'), secretHashRipeSha, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         // success refund
         const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[0]));
 
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.fulfilled;
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, this.token.address, accounts[1]).should.be.fulfilled;
 
         const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[0]));
 
@@ -184,16 +218,17 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(payment[2].valueOf(), SENDER_REFUNDED);
 
         // not allow to refund again
-        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
+        await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHashRipeSha, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
     });
 
-    it('should allow receiver to spend ETH payment by revealing a secret', async function () {
+    it('should allow receiver to spend ETH payment by revealing a secret hashed with ripe(sha)', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         // should not allow to spend uninitialized payment
@@ -230,15 +265,105 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
 
-    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ETH payment by revealing a secret hashed with sha', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            lockTime,
+            SHA256,
+            secretHashSha
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to claim from non-receiver address even with valid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+
+        const tx = await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const txFee = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(tx.receipt.gasUsed));
+
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow receiver to spend ERC20 payment by revealing a secret hashed with ripe(sha)', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
             web3.utils.toWei('1'),
             this.token.address,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to claim from non-receiver address even with valid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow receiver to spend ERC20 payment by revealing a secret hashed with sha', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            lockTime,
+            SHA256,
+            secretHashSha
         ];
 
         // should not allow to spend uninitialized payment
@@ -279,8 +404,9 @@ contract('EtomicSwap', function(accounts) {
         const params = [
             id,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
@@ -315,8 +441,9 @@ contract('EtomicSwap', function(accounts) {
             web3.utils.toWei('1'),
             this.token.address,
             accounts[1],
-            secretHash,
-            lockTime
+            lockTime,
+            RIPE_SHA256,
+            secretHashRipeSha
         ];
 
         await this.token.approve(this.swap.address, web3.utils.toWei('1'));
