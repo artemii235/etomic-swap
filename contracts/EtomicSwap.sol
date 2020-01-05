@@ -11,7 +11,8 @@ contract EtomicSwap {
 
     enum SecretHashAlgo {
         Ripe160Sha256,
-        Sha256
+        Sha256,
+        Keccak256
     }
 
     struct Payment {
@@ -37,7 +38,7 @@ contract EtomicSwap {
         bytes calldata _secretHash
     ) external payable {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
-        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256);
+        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256 || _algo == SecretHashAlgo.Keccak256);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -67,7 +68,7 @@ contract EtomicSwap {
         bytes calldata _secretHash
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
-        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256);
+        require(_algo == SecretHashAlgo.Ripe160Sha256 || _algo == SecretHashAlgo.Sha256 || _algo == SecretHashAlgo.Keccak256);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -102,6 +103,8 @@ contract EtomicSwap {
             expected_hash = abi.encodePacked(ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))));
         } else if (payments[_id].secret_hash_algo == SecretHashAlgo.Sha256) {
             expected_hash = abi.encodePacked(sha256(abi.encodePacked(_secret)));
+        } else if (payments[_id].secret_hash_algo == SecretHashAlgo.Keccak256) {
+            expected_hash = abi.encodePacked(keccak256(abi.encodePacked(_secret)));
         } else {
             revert("Unknown secret hash algo");
         }

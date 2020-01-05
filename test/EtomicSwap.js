@@ -29,11 +29,12 @@ async function currentEvmTime() {
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
-const [RIPE_SHA256, SHA256] = [0, 1];
+const [RIPE_SHA256, SHA256, KECCAK256] = [0, 1, 2];
 
 const secret = crypto.randomBytes(32);
 const secretHashRipeSha = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
 const secretHashSha = '0x' + crypto.createHash('sha256').update(secret).digest('hex');
+const secretHashKeccak = web3.utils.keccak256(secret);
 const secretHex = '0x' + secret.toString('hex');
 
 const zeroAddr = '0x0000000000000000000000000000000000000000';
@@ -79,7 +80,7 @@ contract('EtomicSwap', function(accounts) {
             id,
             accounts[1],
             lockTime,
-            2,
+            3,
             secretHashRipeSha
         ];
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.rejectedWith(EVMThrow);
@@ -123,7 +124,7 @@ contract('EtomicSwap', function(accounts) {
             this.token.address,
             accounts[1],
             lockTime,
-            2,
+            3,
             secretHashRipeSha
         ];
 
@@ -353,6 +354,50 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
 
+    it('should allow receiver to spend ETH payment by revealing a secret hashed with keccak', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            lockTime,
+            KECCAK256,
+            secretHashKeccak
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to claim from non-receiver address even with valid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+
+        const tx = await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const txFee = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(tx.receipt.gasUsed));
+
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
     it('should allow receiver to spend ERC20 payment by revealing a secret hashed with ripe(sha)', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
@@ -408,6 +453,51 @@ contract('EtomicSwap', function(accounts) {
             lockTime,
             SHA256,
             secretHashSha
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to claim from non-receiver address even with valid secret
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
+        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow receiver to spend ERC20 payment by revealing a secret hashed with keccak', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            lockTime,
+            KECCAK256,
+            secretHashKeccak
         ];
 
         // should not allow to spend uninitialized payment
