@@ -6,6 +6,7 @@
   "scripts": {
     "rpc": "node startRPC.js",
     "test": "truffle test",
+    "clean": "rm -rf merge",
     "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
   },
   "author": "ortgma@gmail.com",

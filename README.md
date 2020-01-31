@@ -27,6 +27,11 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
 
+## Additional commands
+
+1. To merge contract to single file: `docker-compose exec workspace yarn merge`.
+1. To clean merged contract: `docker-compose exec workspace yarn clean`.
+
 ## Related links
 
 1. Komodo platform - https://www.komodoplatform.com
