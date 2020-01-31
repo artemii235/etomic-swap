@@ -52,6 +52,11 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(payment[2].valueOf(), PAYMENT_UNINITIALIZED);
     });
 
+    it('should have version 2', async function () {
+        const version = await this.swap.version();
+        assert.equal(version, 2);
+    });
+
     it('should allow to send ETH payment', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [

@@ -24,6 +24,8 @@ contract EtomicSwap {
 
     mapping (bytes32 => Payment) public payments;
 
+    uint256 public version = 2;
+
     event PaymentSent(bytes32 id);
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
