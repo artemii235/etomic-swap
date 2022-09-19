@@ -1,6 +1,6 @@
 FROM mhart/alpine-node:14.16
 
-RUN apk update && apk upgrade && apk add git && apk add python && apk add make && apk add g++
+RUN apk update && apk upgrade && apk add git python make g++ gcompat
 
 ADD . /usr/src/rpc
 
