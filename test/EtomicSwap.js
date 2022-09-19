@@ -29,6 +29,7 @@ async function currentEvmTime() {
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
+const [DHASH160, SHA256] = [0, 1];
 
 const secret = crypto.randomBytes(32);
 const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
@@ -67,6 +68,9 @@ contract('EtomicSwap', function(accounts) {
         // status
         assert.equal(payment[2].valueOf(), PAYMENT_SENT);
 
+        const secret_hash_algo = await this.swap.secret_hash_algos(id);
+        assert.equal(secret_hash_algo.valueOf(), DHASH160);
+
         // should not allow to send again
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.rejectedWith(EVMThrow);
     });
@@ -88,6 +92,8 @@ contract('EtomicSwap', function(accounts) {
         // status
         assert.equal(payment[2].valueOf(), PAYMENT_SENT);
 
+        const secret_hash_algo = await this.swap.secret_hash_algos(id);
+        assert.equal(secret_hash_algo.valueOf(), SHA256);
         // should not allow to send again
         await this.swap.ethPaymentSha256(...params, { value: web3.utils.toWei('1') }).should.be.rejectedWith(EVMThrow);
     });
@@ -116,6 +122,9 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(payment[1].valueOf(), lockTime);
         // status
         assert.equal(payment[2].valueOf(), PAYMENT_SENT);
+
+        const secret_hash_algo = await this.swap.secret_hash_algos(id);
+        assert.equal(secret_hash_algo.valueOf(), DHASH160);
 
         // should not allow to deposit again
         await this.swap.erc20Payment(...params).should.be.rejectedWith(EVMThrow);
@@ -146,6 +155,8 @@ contract('EtomicSwap', function(accounts) {
         // status
         assert.equal(payment[2].valueOf(), PAYMENT_SENT);
 
+        const secret_hash_algo = await this.swap.secret_hash_algos(id);
+        assert.equal(secret_hash_algo.valueOf(), SHA256);
         // should not allow to deposit again
         await this.swap.erc20PaymentSha256(...params).should.be.rejectedWith(EVMThrow);
     });
