@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.8.0;
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 
 contract EtomicSwap {
@@ -21,7 +21,7 @@ contract EtomicSwap {
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
 
-    constructor() public { }
+    constructor() { }
 
     function ethPayment(
         bytes32 _id,
@@ -97,10 +97,40 @@ contract EtomicSwap {
         require(paymentHash == payments[_id].paymentHash);
         payments[_id].state = PaymentState.ReceivedSpent;
         if (_tokenAddress == address(0)) {
-            msg.sender.transfer(_amount);
+            payable(msg.sender).transfer(_amount);
         } else {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
+        }
+
+        emit ReceiverSpent(_id, _secret);
+    }
+
+    function watcherSpend(
+        bytes32 _id,
+        uint256 _amount,
+        bytes32 _secret,
+        address _tokenAddress,
+        address _sender,
+        address _receiver
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(abi.encodePacked(
+                _receiver,
+                _sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+                _tokenAddress,
+                _amount
+            ));
+
+        require(paymentHash == payments[_id].paymentHash);
+        payments[_id].state = PaymentState.ReceivedSpent;
+        if (_tokenAddress == address(0)) {
+            payable(_receiver).transfer(_amount);
+        } else {
+            IERC20 token = IERC20(_tokenAddress);
+            require(token.transfer(_receiver, _amount));
         }
 
         emit ReceiverSpent(_id, _secret);
@@ -123,15 +153,47 @@ contract EtomicSwap {
                 _amount
             ));
 
-        require(paymentHash == payments[_id].paymentHash && now >= payments[_id].lockTime);
+        require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
 
         payments[_id].state = PaymentState.SenderRefunded;
 
         if (_tokenAddress == address(0)) {
-            msg.sender.transfer(_amount);
+            payable(msg.sender).transfer(_amount);
         } else {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
+        }
+
+        emit SenderRefunded(_id);
+    }
+
+    function watcherRefund(
+        bytes32 _id,
+        uint256 _amount,
+        bytes20 _paymentHash,
+        address _tokenAddress,
+        address _sender,
+        address _receiver
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(abi.encodePacked(
+                _receiver,
+                _sender,
+                _paymentHash,
+                _tokenAddress,
+                _amount
+            ));
+
+        require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
+
+        payments[_id].state = PaymentState.SenderRefunded;
+
+        if (_tokenAddress == address(0)) {
+            payable(_sender).transfer(_amount);
+        } else {
+            IERC20 token = IERC20(_tokenAddress);
+            require(token.transfer(_sender, _amount));
         }
 
         emit SenderRefunded(_id);
