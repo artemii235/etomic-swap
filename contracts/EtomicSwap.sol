@@ -1,5 +1,5 @@
-pragma solidity ^0.8.0;
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.9;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract EtomicSwap {
     enum PaymentState {

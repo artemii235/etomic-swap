@@ -1,7 +1,7 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.8.9;
 
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title Standard ERC20 token
@@ -29,7 +29,7 @@ contract Token is IERC20 {
 
   uint8 public constant decimals = 18;
 
-  constructor() public {
+  constructor() {
     _balances[msg.sender] = 1000 ether;
     _totalSupply = 1000 ether;
   }
