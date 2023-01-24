@@ -308,7 +308,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
 
-    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -341,5 +341,190 @@ contract('EtomicSwap', function(accounts) {
 
         // should not allow to spend again
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow a watcher to refund ETH payment on behalf of the sender after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        // not allow to refund if payment was not sent
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
+
+        // not allow to refund before locktime
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        await increaseTime(1000);
+
+        // not allow to refund invalid amount
+        await this.swap.watcherRefund(id, web3.utils.toWei('2'), secretHash, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // not allow to refund with wrong sender address
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[2], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // not allow to refund with wrong receiver address
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[2], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // success refund
+        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[0]));
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+
+        const tx = await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[1], { from: accounts[2], gasPrice }).should.be.fulfilled;
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[0]));
+
+        // check sender balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[2].valueOf(), SENDER_REFUNDED);
+
+        // not allow to refund again
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow a watcher to refund ERC20 payment on behalf of the sender after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.fulfilled;
+
+        // not allow to refund if payment was not sent
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // not allow to refund before locktime
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        await increaseTime(1000);
+
+        // not allow to refund invalid amount
+        await this.swap.watcherRefund(id, web3.utils.toWei('2'), secretHash, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // not allow to refund with wrong sender address
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[2], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // not allow to refund with wrong receiver address
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[0], accounts[2], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+        
+        // success refund
+        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[0]));
+
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.fulfilled;
+
+        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[0]));
+
+        // check sender balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[2].valueOf(), SENDER_REFUNDED);
+
+        // not allow to refund again
+        await this.swap.watcherRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[0], accounts[1], {from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow a watcher to spend ETH payment on behalf of the receiver by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), id, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.watcherSpend(id, web3.utils.toWei('2'), secretHex, zeroAddr, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to spend with wrong sender address
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[2], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to spend with wrong receiver address
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], accounts[2], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+
+        const tx = await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], accounts[1], { from: accounts[2], gasPrice }).should.be.fulfilled;
+
+        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], accounts[1], { from: accounts[2], gasPrice }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow a watcher to spend ERC20 payment on behalf of the receiver by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            web3.utils.toWei('1'),
+            this.token.address,
+            accounts[1],
+            secretHash,
+            lockTime
+        ];
+
+        // should not allow to spend uninitialized payment
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
+        await this.swap.erc20Payment(...params).should.be.fulfilled;
+
+        // should not allow to spend with invalid secret
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), id, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+        // should not allow to spend invalid amount
+        await this.swap.watcherSpend(id, web3.utils.toWei('2'), secretHex, this.token.address, accounts[0], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to spend with wrong sender address
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[2], accounts[1], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // should not allow to spend with wrong receiver address
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], accounts[2], { from: accounts[2] }).should.be.rejectedWith(EVMThrow);
+
+        // success spend
+        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        const gasPrice = web3.utils.toWei('100', 'gwei');
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], accounts[1], { from: accounts[2], gasPrice }).should.be.fulfilled;
+        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+
+        // check receiver balance
+        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+
+        const payment = await this.swap.payments(id);
+
+        // status
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // should not allow to spend again
+        await this.swap.watcherSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], accounts[1], { from: accounts[2], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
 });
