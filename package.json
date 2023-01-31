@@ -6,6 +6,7 @@
   "scripts": {
     "rpc": "node startRPC.js",
     "test": "truffle test",
+    "clean": "rm -rf merge",
     "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
   },
   "author": "ortgma@gmail.com",
@@ -13,8 +14,8 @@
   "dependencies": {
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
-    "ganache-cli": "^6.2.5",
-    "openzeppelin-solidity": "https://github.com/OpenZeppelin/openzeppelin-solidity.git#release-v2.1.0-solc-0.5",
+    "ganache-cli": "^6.7.0",
+    "@openzeppelin/contracts": "^4.8.1",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",
     "ripemd160": "^2.0.1",
