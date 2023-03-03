@@ -15,7 +15,7 @@
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
     "ganache-cli": "^6.7.0",
-    "@openzeppelin/contracts": "^4.8.1",
+    "@openzeppelin/contracts": "^4.8.2",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",
     "ripemd160": "^2.0.1",
